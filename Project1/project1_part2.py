@@ -303,6 +303,126 @@ def mix_columns(state):
 
     return new_state
 
+
+#========================= Helper functions for Part 1 (2) ============================
+
+
+#======================================================================================
+# Flip one bit in a 128-bit string 
+def flip_bit(bits, bit_index):
+
+    # Turn the string into a list so we can edit one position
+    bit_list = list(bits)
+
+    # Toggle the bit at bit_index
+    if bit_list[bit_index] == "0":
+        bit_list[bit_index] = "1"
+    else:
+        bit_list[bit_index] = "0"
+
+    # Convert list back to string
+    new_bits = "".join(bit_list)
+
+    return new_bits
+
+
+#======================================================================================
+# Encrypt one 128-bit plaintext and store states after each round
+def encrypt_with_trace(plaintext_bits, round_keys):
+
+    trace = {}
+
+    # convert to state
+    plaintext_bytes = bits_to_bytes(plaintext_bits)
+    state = bytes_to_state(plaintext_bytes)
+
+    # Round 0
+    state = add_round_key(state, round_keys[0])
+    trace[0] = state
+
+    # Rounds 1 to 9
+    for round_num in range(1, 10):
+        state = sub_bytes(state)
+        state = shift_rows(state)
+        state = mix_columns(state)
+        state = add_round_key(state, round_keys[round_num])
+
+        trace[round_num] = state
+
+    # Round 10 (no MixColumns)
+    state = sub_bytes(state)
+    state = shift_rows(state)
+    state = add_round_key(state, round_keys[10])
+
+    trace[10] = state
+
+    return trace
+
+#======================================================================================
+# Convert AES state back into a list of 16 bytes
+def state_to_byte_list(state):
+    byte_list = []
+
+    # column-major = block[row + 4*col]
+    for col in range(4):
+        for row in range(4):
+            byte_list.append(state[row][col])
+
+    return byte_list
+
+
+#======================================================================================
+# Count number of 1-bits in a byte (0..255)
+def count_ones_in_byte(x):
+    return bin(x).count("1")
+
+
+#======================================================================================
+# Count how many bits differ between two AES states
+def count_state_bit_differences(state_a, state_b):
+
+    bytes_a = state_to_byte_list(state_a)
+    bytes_b = state_to_byte_list(state_b)
+
+    total_diff_bits = 0
+
+    # Compare each of the 16 bytes
+    for i in range(16):
+        xor_value = bytes_a[i] ^ bytes_b[i]
+        diff_bits = count_ones_in_byte(xor_value)
+        total_diff_bits = total_diff_bits + diff_bits
+
+    return total_diff_bits
+
+#======================================================================================
+def main_part1_2():
+    sorted_d_number = "D01959487D01960675D01960691"
+
+    # Original plaintext bits (first 128)
+    original_bits = text_to_bits(sorted_d_number)[:128]
+
+    # Flip AES bit 12
+    flipped_bits = flip_bit(original_bits, 12)
+
+    # check how many bits differ from each other
+    print("Plaintext bit differences:",
+      sum(1 for i in range(128) if original_bits[i] != flipped_bits[i]))
+
+    # Build round keys once (same key for both encryptions)
+    w = KeyExpansion(key)
+    round_keys = build_round_keys(w)
+
+    # Encrypt both and trace
+    trace_original = encrypt_with_trace(original_bits, round_keys)
+    trace_flipped = encrypt_with_trace(flipped_bits, round_keys)
+
+    # Print bit differences for rounds 1 to 4
+    print("Bit differences (flipped vs original):")
+    for r in range(1, 5):
+        diff = count_state_bit_differences(trace_original[r], trace_flipped[r])
+        print("Round " + str(r) + ": " + str(diff) + " bit(s) differ")
+
+
 #======================================================================================
 # main
 def main():
@@ -325,7 +445,7 @@ def main():
     state = add_round_key(state, round_keys[0])
     print_state(state, "State after Round 0 (AddRoundKey)")
 
-    # Rounds 1 to 9
+    # Rounds 1 to 9 aka round_i
     for round_num in range(1, 10):
 
         # SubBytes
@@ -353,3 +473,4 @@ def main():
 
 
 main()
+# main_part1_2()
